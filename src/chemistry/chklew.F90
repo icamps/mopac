@@ -14,7 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-subroutine chklew (mb, numbon, l, large, debug)
+subroutine chklew (mb, numbon, l, large, l_atom_charge, atom_charge, debug)
 !***********************************************************************
 !
 !   CHKLEW  identifies all the obvious Lewis structural elements such
@@ -35,6 +35,8 @@ subroutine chklew (mb, numbon, l, large, debug)
     implicit none
     logical, intent (in) :: debug
     integer, intent (in) :: large
+    logical, intent (in) :: l_atom_charge(numat)
+    integer, intent (in) :: atom_charge(numat)
     integer, intent (out) :: l
     integer, dimension (3), intent (inout) :: numbon
     integer, dimension (numat), intent (inout) :: mb
@@ -43,7 +45,7 @@ subroutine chklew (mb, numbon, l, large, debug)
     logical :: big, graphi, lnext, first_pi
     integer :: i, i1, i2, ii, iset, j, jj, k, loop, m, nbii, ni_loc, &
          & npi, alloc_stat, not_aromatic_pi
-    character :: plus_seven*1, num1*1, num2*1
+    character :: num1*1, num2*1
     integer, dimension(:), allocatable :: ipi, ir5, mpii
     intrinsic Index, Min, Nint
     double precision, external :: distance
@@ -96,18 +98,11 @@ subroutine chklew (mb, numbon, l, large, debug)
       if (labels(i) /= 99) then
         j = j + 1
       end if
-      plus_seven = txtatm(i)(7:7)
-      txtatm(i)(7:7) = " "
-      if (Index (txtatm(i)(:6), "+") /= 0) then
+      if (l_atom_charge(i)) then
         icharges = icharges + 1
-        iz(j) = iz(j) - 1
-        ions(j) =  1
-      else if (Index (txtatm(i)(:12), "-") /= 0) then
-        icharges = icharges + 1
-        iz(j) = iz(j) + 1
-        ions(j) = -1
+        iz(j) = iz(j) - atom_charge(i)
+        ions(j) = atom_charge(i)
       end if
-      txtatm(i)(7:7) = plus_seven
     end do
 !
 !   Fill "d" shell if necessary

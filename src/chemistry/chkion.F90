@@ -14,7 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-subroutine chkion (ox_calc, n_lone_pairs, atom_charge)
+subroutine chkion (ox_calc, n_lone_pairs, l_atom_charge, atom_charge)
    !***********************************************************************
    !
    !   CHKION works out which atoms are ionized.  By the time CHKION is
@@ -42,7 +42,8 @@ subroutine chkion (ox_calc, n_lone_pairs, atom_charge)
     use MOZYME_C, only: ions, Lewis_tot, Lewis_elem, &
       iz, ib
     implicit none
-    character, intent (in) :: atom_charge(numat)
+    logical, intent (in) :: l_atom_charge(numat)
+    integer, intent (in) :: atom_charge(numat)
     integer, intent (inout) :: n_lone_pairs, ox_calc(numat)
     integer :: i, j, k, jj, loop, m, mm, outer_loop, ni, dummy, nocc_local
     integer :: ox_ref(107), ox_ref_sp(107), ox_ref_spd1(107), ox_ref_spd2(107)
@@ -265,7 +266,9 @@ subroutine chkion (ox_calc, n_lone_pairs, atom_charge)
 !
               ni = nat(i)
               do
-                if (atom_charge(i) == " ") then
+                if (l_atom_charge(i)) then
+                  jj = atom_charge(i)
+                else
                   if (Abs(ox_calc(i)) > Abs(ox_ref_spd1(ni))) then
                     jj = ox_ref_spd2(ni) - ox_calc(i)
                   else if (Abs(ox_calc(i)) > Abs(ox_ref_sp(ni))) then
@@ -275,12 +278,6 @@ subroutine chkion (ox_calc, n_lone_pairs, atom_charge)
                   else
                     jj = ox_ref(ni) - ox_calc(i)
                   end if
-                else if (atom_charge(i) == "+") then
-                  jj = 1
-                else if (atom_charge(i) == "-") then
-                  jj = -1
-                else if (atom_charge(i) == "0") then
-                  jj = 0
                 end if
 !
 !  jj is the presumed charge on the atom.

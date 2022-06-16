@@ -53,7 +53,8 @@ subroutine geochk ()
     integer, parameter :: max_sites = 400
     character :: padding*40, txtatm_1*27, txtatm_2*27, tmp*130
     character, allocatable :: Lewis_formatted(:,:)*20, temp_txtatm(:)*27
-    character (len=1), dimension (:), allocatable :: atom_charge
+    logical, dimension (:), allocatable :: l_atom_charge
+    integer, dimension (:), allocatable :: atom_charge
     character :: ion_names(-6:6)*12, charge(max_sites,3)*1, num
     double precision, dimension(:), allocatable :: radius
     logical, save :: debug, let, lres, lreseq, times, opend, charges, l_protein, &
@@ -101,12 +102,13 @@ subroutine geochk ()
     if (Allocated (iz))     deallocate (iz)
     if (Allocated (ib))     deallocate (ib)
     allocate (ions(maxatoms), iz(maxatoms), ib(maxatoms), mb(maxatoms), at_res(maxatoms), &
-            & atom_charge(maxatoms), ioptl(maxatoms), iopt(maxatoms), radius(maxatoms), &
+            & l_atom_charge(maxatoms), atom_charge(maxatoms), ioptl(maxatoms), iopt(maxatoms), radius(maxatoms), &
             stat=alloc_stat)
     if (alloc_stat /= 0) then
       call mopend("Failed to allocate arrays in GEOCHK")
       go to 1100
     end if
+    l_atom_charge = .false.
     l_protein = .false.
     ib(:) = 0
     at_res = 0
@@ -424,15 +426,19 @@ subroutine geochk ()
       end do
     end if
 !
-!  Store charge, if present
+!  Store atomic charge, if present at the beginning of an atom label
 !
     do i = 1, natoms
-      atom_charge(i) = txtatm(i)(2:2)
-!
-!  Prevent atom number being mis-read as a charge.
-!
-      if (txtatm(i)(2:2) /= "+" .and. txtatm(i)(2:2) /= "-" .and. txtatm(i)(2:2) /= "0") &
-      & atom_charge(i) = " "
+      if (txtatm(i)(1:1) == "+" .or. txtatm(i)(1:1) == "-" .or. txtatm(i)(1:1) == "0") then
+        l_atom_charge(i) = .true.
+        if (txtatm(i)(1:1) == "0") then
+          atom_charge(i) = 0
+        else
+          atom_charge(i) = ichar(txtatm(i)(2:2)) - ichar('0')
+          if( atom_charge(i) < 0 .or. atom_charge(i) > 9 ) atom_charge(i) = 1
+          if (txtatm(i)(1:1) == "-") atom_charge(i) = -atom_charge(i)
+        end if
+      end if
     end do
 !
 !    ASSIGN LOGICALS USING KEYWRD
@@ -626,7 +632,7 @@ subroutine geochk ()
 !  LONE PAIRS, CATIONS, PI BONDS, ANIONS, OTHER CHARGES)
 !
       numbon = 0
-      call chklew (mb, numbon, l, large, debug)
+      call chklew (mb, numbon, l, large, l_atom_charge, atom_charge, debug)
       if (moperr) return
       l = 0
       do i = 1, numat
@@ -636,7 +642,7 @@ subroutine geochk ()
 !
 !  THERE ARE IONS.  IDENTIFY THEM.
 !
-        call chkion (mb, numbon(2), atom_charge)
+        call chkion (mb, numbon(2), l_atom_charge, atom_charge)
         if (lreseq) moperr = .false.
         if (moperr) return
       end if
@@ -1787,10 +1793,17 @@ subroutine geochk ()
     end do
 !
 !  Restore charges, if present
+!  (I'm preserving this behavior, but I'm not sure what it is for)
 !
     if (maxtxt /= 27) then
       do i = 1, natoms
-        if(atom_charge(i) /= " ") txtatm(i)(2:2) = atom_charge(i)
+        if(l_atom_charge(i)) then
+          if( atom_charge(i) < -1 ) txtatm(i)(1:2) = '-' // char(-atom_charge(i) - ichar('0'))
+          if( atom_charge(i) == -1 ) txtatm(i)(1:1) = '-'
+          if( atom_charge(i) == 0 ) txtatm(i)(1:1) = '0'
+          if( atom_charge(i) == 1 ) txtatm(i)(1:1) = '+'
+          if( atom_charge(i) > 1 ) txtatm(i)(1:2) = '+' // char(atom_charge(i) - ichar('0'))
+        end if
       end do
     end if
 !
